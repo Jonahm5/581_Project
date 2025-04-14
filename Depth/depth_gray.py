@@ -5,12 +5,11 @@ from transformers import pipeline
 
 def get_depth_map_transformer(image_path):
     img = cv2.imread(image_path)
-    img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     estimator = pipeline(task="depth-estimation", model="Intel/dpt-large")
     result = estimator(images=image_path)
-    depth_map = np.array(result["depth"]).astype(np.float32)
+    depth_map = np.array(result["depth"])
     normalized_depth = (depth_map - depth_map.min()) / (depth_map.max() - depth_map.min())
-    return normalized_depth, img_rgb
+    return normalized_depth, img
 
 def fill_inner_area_from_edges(edge_img):
     kernel = np.ones((5, 5), np.uint8)
@@ -20,10 +19,9 @@ def fill_inner_area_from_edges(edge_img):
     cv2.drawContours(filled_mask, contours, -1, 255, thickness=cv2.FILLED)
     return filled_mask
 
-def compute_detail_map(normalized_depth, img_rgb, depth_layer=12):
-    gray_img = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2GRAY)
+def compute_detail_map(normalized_depth, img, depth_layer=12):
+    gray_img = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
     global_edges = cv2.Canny(gray_img, 50, 150)
-    filled_global = fill_inner_area_from_edges(global_edges)
     power = 2
     partition_thresholds = np.linspace(0, 1, depth_layer + 1) ** power
     detail_map = []
@@ -35,10 +33,10 @@ def compute_detail_map(normalized_depth, img_rgb, depth_layer=12):
     combined_detail_map = np.sum(np.array(detail_map), axis=0)
     return combined_detail_map
 
-def create_watertight_mesh(normalized_depth, img_rgb, scale, base_thickness, detail_scale, grayscale_detail_weight, stl_filename="model.stl"):
+def create_watertight_mesh(normalized_depth, img, scale, base_thickness, detail_scale, grayscale_detail_weight, stl_filename="model.stl"):
     H, W = normalized_depth.shape
-    detail_map = compute_detail_map(normalized_depth, img_rgb)
-    gray_img = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2GRAY).astype(np.float32) / 255.0
+    detail_map = compute_detail_map(normalized_depth, img)
+    gray_img = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY).astype(np.float32) / 255.0
     gray_img = cv2.GaussianBlur(gray_img, (3, 3), 0)
     gray_detail_scaled = gray_img * grayscale_detail_weight
     filled_global = fill_inner_area_from_edges(cv2.Canny(gray_img.astype(np.uint8) * 255, 50, 150)) / 255.0
@@ -113,8 +111,8 @@ def create_watertight_mesh(normalized_depth, img_rgb, scale, base_thickness, det
     print(f"Successfully generated STL: {stl_filename}")
 
 def generate_printable_model(image_path, scale=150, base_thickness=8, detail_scale=5, grayscale_detail_weight=5, stl_filename="output.stl"):
-    normalized_depth, img_rgb = get_depth_map_transformer(image_path)
-    create_watertight_mesh(normalized_depth, img_rgb, scale, base_thickness, detail_scale, grayscale_detail_weight, stl_filename)
+    normalized_depth, img = get_depth_map_transformer(image_path)
+    create_watertight_mesh(normalized_depth, img, scale, base_thickness, detail_scale, grayscale_detail_weight, stl_filename)
 
 # Example call
-generate_printable_model("Mid/Girl/Girl.png", scale=100, base_thickness=10, detail_scale=10, grayscale_detail_weight=8, stl_filename="Depth/grayGirl2.stl")
+generate_printable_model("Mid/Girl/Girl.png", scale=100, base_thickness=10, detail_scale=10, grayscale_detail_weight=8, stl_filename="581_Project/STLTest/grayGirl2.stl")
