@@ -1,12 +1,7 @@
 import cv2
-import torch
-import ssl
 import numpy as np
 from stl import mesh
-import matplotlib.pyplot as plt
 from transformers import pipeline
-
-ssl._create_default_https_context = ssl._create_unverified_context
 
 def get_depth_map_transformer(image_path):
     img = cv2.imread(image_path)
@@ -53,7 +48,7 @@ def create_watertight_mesh(normalized_depth, img_rgb, scale, base_thickness, det
         cv2.GaussianBlur(normalized_depth, (5, 5), 1.5) * scale +
         filled_global * detail_scale +
         global_edges_dilated * 1.0 +
-        gray_detail_scaled
+        gray_detail_scaled + detail_map
     )
 
     xx, yy = np.meshgrid(np.arange(W), np.arange(H))
@@ -122,4 +117,4 @@ def generate_printable_model(image_path, scale=150, base_thickness=8, detail_sca
     create_watertight_mesh(normalized_depth, img_rgb, scale, base_thickness, detail_scale, grayscale_detail_weight, stl_filename)
 
 # Example call
-generate_printable_model("Mid/Man/Man.png", scale=100, base_thickness=10, detail_scale=10, grayscale_detail_weight=8, stl_filename="Depth/STLFiles/grayMan.stl")
+generate_printable_model("Mid/Girl/Girl.png", scale=100, base_thickness=10, detail_scale=10, grayscale_detail_weight=8, stl_filename="Depth/grayGirl2.stl")
