@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 from stl import mesh
 from transformers import pipeline
+import open3d as o3d
 
 def get_depth_map_transformer(image_path):
     img = cv2.imread(image_path)
@@ -103,10 +104,20 @@ def create_watertight_mesh(normalized_depth, img, scale, base_thickness, detail_
         faces.append([v_top1, v_top2, v_bot1])
         faces.append([v_top2, v_bot2, v_bot1])
 
-    stl_mesh = mesh.Mesh(np.zeros(len(faces), dtype=mesh.Mesh.dtype))
-    stl_mesh.vectors = vertices[np.array(faces)]
-    stl_mesh.save(stl_filename)
-    print(f"Successfully generated STL: {stl_filename}")
+
+    mesh_o3d = o3d.geometry.TriangleMesh(
+    o3d.utility.Vector3dVector(vertices),
+    o3d.utility.Vector3iVector(faces))
+
+    # 
+    mesh_o3d = mesh_o3d.filter_smooth_taubin(number_of_iterations=smooth_iters)
+
+    # recomputing the updated information
+    mesh_o3d.compute_triangle_normals()
+    mesh_o3d.compute_vertex_normals()
+
+    o3d.io.write_triangle_mesh(stl_filename, mesh_o3d)
+    
 
 def generate_printable_model(image_path, scale=150, base_thickness=8, detail_scale=5, grayscale_detail_weight=5, stl_filename="output.stl"):
     normalized_depth, img = get_depth_map_transformer(image_path)
